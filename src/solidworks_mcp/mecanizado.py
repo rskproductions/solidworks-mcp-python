@@ -19,9 +19,17 @@ CARVERA_AIR = {
     "nombre": "Makera Carvera Air",
     "area_mm": (300.0, 200.0, 130.0),
     "husillo": "200 W, 0-13.000 rpm",
-    # pinzas: 1/8" de serie; 1/4", 6, 4 y 3 mm opcionales
-    "fresas_mm": {"1/8\"": 3.175, "3 mm": 3.0, "4 mm": 4.0, "6 mm": 6.0, "1/4\"": 6.35},
+    # pinzas del Air (wiki, Air/Manual/toolkit): 1/8" de serie; 4, 6 y 1/4"
+    # opcionales. La de 3 mm solo aparece para la Carvera C1.
+    "fresas_mm": {"1/8\"": 3.175, "4 mm": 4.0, "6 mm": 6.0, "1/4\"": 6.35},
     "ld_max": 3.0,        # profundidad/diametro a partir de la cual avisar
+    # Wiki de Makera (sep 2026). Cambio de herramienta MANUAL rapido (sin
+    # almacen); herramienta < 76 mm de largo total; >= 10 mm entre la escuadra
+    # en L y el inicio de la trayectoria; bridas superiores para piezas < 20 mm;
+    # en metal la fresa de 3,175 corta 12 mm y se baja 0,1-0,2 mm por pasada.
+    "filo_metal_mm": 12.0,
+    "margen_escuadra_mm": 10.0,
+    "grosor_max_bridas_sup_mm": 20.0,
 }
 
 
@@ -108,6 +116,15 @@ def dfm_3ejes(doc, maquina=CARVERA_AIR, eje_herramienta=(0.0, 0.0, 1.0)):
         elif max(fresas[k] for k in cab) > d - 0.3:
             avisos.append("Diametro %.2f mm con fresa de %.3f mm: holgura < 0,15 mm por lado; "
                           "mejor fresa mas fina o broca." % (d, max(fresas[k] for k in cab)))
+    if tam[2] >= maquina.get("grosor_max_bridas_sup_mm", 1e9):
+        avisos.append("Grosor %.1f mm: las bridas superiores del Air son para piezas de menos de "
+                      "%.0f mm; usar escuadra en L o calzos." % (tam[2], maquina["grosor_max_bridas_sup_mm"]))
+    if conc and maquina.get("filo_metal_mm"):
+        prof = max(x["z"][1] - x["z"][0] for x in conc)
+        if prof >= maquina["filo_metal_mm"]:
+            avisos.append("Zona concava de %.1f mm de profundidad: en metal la fresa de 3,175 corta "
+                          "%.0f mm (sin margen); en madera/plastico hay fresas de hasta 42 mm."
+                          % (prof, maquina["filo_metal_mm"]))
     if abajo:
         avisos.append("%d cara(s) miran hacia -Z por encima de la base: hace falta "
                       "voltear la pieza (segunda atada) o 4.o eje." % len(abajo))
