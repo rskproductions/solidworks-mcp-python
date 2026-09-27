@@ -7,6 +7,9 @@ patrón del MCP nativo de Fusion 360: **la vía principal es `sw_execute_script`
 tipadas son atajos encima. Un solo hilo → COM STA sin trucos.
 *[Read in English](README.md).*
 
+> Probado solo con SOLIDWORKS 2026 (3DEXPERIENCE R2026x, en español) y
+> Python 3.14. Se agradecen informes con otras versiones o idiomas (issues).
+
 ## Instalación y arranque
 
 ```bat

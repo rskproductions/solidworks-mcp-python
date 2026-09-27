@@ -387,16 +387,13 @@ def t_sw_connect(a):
 def t_sw_doc_info(a):
     c = _core()
     doc = c.active_doc()
-    try:
-        n = len(doc.GetBodies2(0, True) or [])
-    except Exception:
-        n = None
-    return {
-        "title": doc.GetTitle,
-        "path": doc.GetPathName,
-        "type": c.doc_type(doc),
-        "bodies": n,
-    }
+    tipo = c.doc_type(doc)
+    out = {"title": doc.GetTitle, "path": doc.GetPathName, "type": tipo}
+    if tipo == 1:
+        out["bodies"] = len(doc.GetBodies2(0, True) or [])
+    elif tipo == 2:
+        out["components"] = len(doc.GetComponents(False) or [])   # todos los niveles
+    return out
 
 
 def t_sw_new_part(a):

@@ -496,23 +496,38 @@ def face_count(doc):
 
 
 def overall_bbox(doc):
-    bodies = doc.GetBodies2(0, True)
-    if not bodies:
-        return None
-    lo = [1e18, 1e18, 1e18]
-    hi = [-1e18, -1e18, -1e18]
-    for b in bodies:
-        bb = [v * MM for v in b.GetBodyBox()]
-        for i in range(3):
-            lo[i] = min(lo[i], bb[i])
-            hi[i] = max(hi[i], bb[i + 3])
+    """Caja envolvente en mm. Pieza: union de GetBodyBox de los cuerpos.
+    Ensamblaje: IAssemblyDoc.GetBox(0) (GetBodies2 es de IPartDoc y en un
+    ensamblaje da AttributeError); la ayuda avisa de que es APROXIMADA."""
     r = lambda v: round(v, 4)
-    return {
+    if doc_type(doc) == 2:
+        box = soft(doc, "GetBox", 0)
+        if not box:
+            return None
+        lo = [v * MM for v in box[:3]]
+        hi = [v * MM for v in box[3:6]]
+        aprox = True
+    else:
+        bodies = doc.GetBodies2(0, True)
+        if not bodies:
+            return None
+        lo = [1e18, 1e18, 1e18]
+        hi = [-1e18, -1e18, -1e18]
+        for b in bodies:
+            bb = [v * MM for v in b.GetBodyBox()]
+            for i in range(3):
+                lo[i] = min(lo[i], bb[i])
+                hi[i] = max(hi[i], bb[i + 3])
+        aprox = False
+    out = {
         "min": [r(v) for v in lo],
         "max": [r(v) for v in hi],
         "size": [r(hi[i] - lo[i]) for i in range(3)],
         "center": [r((lo[i] + hi[i]) / 2.0) for i in range(3)],
     }
+    if aprox:
+        out["nota"] = "ensamblaje: IAssemblyDoc.GetBox, aproximada (puede no ser la mas ajustada)"
+    return out
 
 
 def features_info(doc, limit=200):

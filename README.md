@@ -14,7 +14,8 @@ writing it instead of guessing 20 positional parameters.
 
 > Status: personal project, used daily to model parts, build assemblies with
 > mates and produce dimensioned drawings. Windows only (COM). Tested with
-> SOLIDWORKS 2026 (3DEXPERIENCE R2026x) and Python 3.14.
+> SOLIDWORKS 2026 (3DEXPERIENCE R2026x, Spanish UI) and Python 3.14 only.
+> Reports from other versions and languages are welcome (open an issue).
 
 ## Tools (19)
 
