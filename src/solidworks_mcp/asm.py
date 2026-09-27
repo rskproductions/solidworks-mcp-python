@@ -191,3 +191,35 @@ def mate_errors(asm):
                 s = c.soft(s, "GetNextSubFeature")
         f = f.GetNextFeature
     return out
+
+
+def interferences(asm, coincidencia=False, ignorar_ocultos=True):
+    """Deteccion de interferencias agrupada por PAREJA de componentes.
+
+    IAssemblyDoc.InterferenceDetectionManager (propiedad; el documento tiene
+    que ser el ENSAMBLAJE activo). Sin agrupar sale una entrada por cada
+    trocito: en OdomeKron fueron 201, todas de 0,000-0,006 mm3 entre dientes
+    de correa y de polea. Tarda: ~40 s con 22 componentes y una carcasa de
+    ~930 caras (cuenta con el limite de 60 s de una llamada MCP)."""
+    mgr = asm.InterferenceDetectionManager
+    mgr.TreatCoincidenceAsInterference = bool(coincidencia)
+    mgr.IgnoreHiddenBodies = bool(ignorar_ocultos)
+    mgr.TreatSubAssembliesAsComponents = True
+    try:
+        ints = mgr.GetInterferences or []
+        parejas = {}
+        for it in ints:
+            nombres = tuple(sorted(x.Name2 for x in (it.Components or [])))
+            p = parejas.setdefault(nombres, {"componentes": list(nombres), "n": 0,
+                                             "volumen_mm3": 0.0, "max_mm3": 0.0})
+            v = it.Volume * 1e9
+            p["n"] += 1
+            p["volumen_mm3"] += v
+            p["max_mm3"] = max(p["max_mm3"], v)
+    finally:
+        mgr.Done()
+    out = sorted(parejas.values(), key=lambda p: -p["volumen_mm3"])
+    for p in out:
+        p["volumen_mm3"] = round(p["volumen_mm3"], 4)
+        p["max_mm3"] = round(p["max_mm3"], 4)
+    return {"interferencias": len(ints), "parejas": out}

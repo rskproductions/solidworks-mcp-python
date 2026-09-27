@@ -72,8 +72,16 @@ TOOLS = [
     },
     {
         "name": "sw_new_part",
-        "description": "Crea una pieza nueva con la plantilla por defecto y la deja activa.",
-        "inputSchema": {"type": "object", "properties": {}},
+        "description": (
+            "Crea una pieza nueva con la plantilla por defecto y la deja activa. "
+            "Por defecto fija unidades MMGS (mm): la plantilla de fabrica viene en "
+            "METROS y los DXF/DWG de chapa saldrian en metros."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"mm": {"type": "boolean", "default": True,
+                                  "description": "false = dejar las unidades de la plantilla."}},
+        },
     },
     {
         "name": "sw_open",
@@ -130,6 +138,49 @@ TOOLS = [
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
+        "name": "sw_mass_properties",
+        "description": (
+            "Propiedades fisicas del documento activo: volumen (mm3), area (mm2), "
+            "masa (g), densidad (kg/m3) y centro de gravedad (mm). Si se pasa "
+            "material, lo asigna antes (nombre del .sldmat, p.ej. '6061-T6 (SS)')."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "material": {"type": "string"},
+                "database": {"type": "string", "default": "SOLIDWORKS Materials"},
+            },
+        },
+    },
+    {
+        "name": "sw_check_machining",
+        "description": (
+            "Revision de fabricabilidad para fresado de 3 ejes desde +Z (perfil por "
+            "defecto: Makera Carvera Air, 300x200x130 mm, pinzas 1/8\", 1/4\", 3/4/6 mm): "
+            "cabe en el area, radio concavo minimo y fresas que caben, esbeltez "
+            "L/D, agujeros justos para la fresa y caras que piden voltear la pieza. "
+            "Con export_dir exporta ademas un STEP (mm) para Makera CAM. No genera "
+            "trayectorias."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"export_dir": {"type": "string"}},
+        },
+    },
+    {
+        "name": "sw_interferences",
+        "description": (
+            "Interferencias del ENSAMBLAJE activo agrupadas por pareja de "
+            "componentes (numero, volumen total y maximo en mm3). Puede tardar: "
+            "~40 s con 22 componentes."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"coincidence": {"type": "boolean", "default": False,
+                                           "description": "Contar contactos coincidentes como interferencia."}},
+        },
+    },
+    {
         "name": "sw_list_features",
         "description": "Arbol de operaciones del documento activo (nombre, tipo, suprimida).",
         "inputSchema": {
@@ -172,7 +223,11 @@ TOOLS = [
             "Ejecuta Python arbitrario contra la sesion de SOLIDWORKS, igual que "
             "el 'script' del MCP de Fusion. En el scope del script: sw (la "
             "aplicacion), doc (ActiveDoc, puede ser None), c (el modulo solidworks_mcp.core, alias sw_core: "
-            "extrude, bodies_info, overall_bbox, features_info, save_as...). "
+            "extrude, bodies_info, overall_bbox, features_info, save_as...), "
+            "fx (features: revolve, shell, hole_wizard, circular/linear_pattern, "
+            "mirror_body, draft, rib, ref_plane_offset, loft, sweep, chapa, "
+            "ecuaciones, configuraciones, mass_props), mz (mecanizado: dfm_3ejes, "
+            "export_cam) y am (ensamblaje: add_mate, interferences). "
             "Escribe en la variable 'result' para devolver datos estructurados; "
             "lo impreso por print() se devuelve en 'stdout'. "
             "\n\n"
@@ -403,7 +458,12 @@ def t_sw_new_part(a):
     doc = app.NewDocument(tpl, 0, 0.0, 0.0)
     if doc is None:
         raise RuntimeError("NewDocument devolvio None. Plantilla usada: %r" % tpl)
-    return {"created": doc.GetTitle, "template": tpl}
+    out = {"created": doc.GetTitle, "template": tpl}
+    if a.get("mm", True):
+        from . import features
+        features.units_mm(app.ActiveDoc)
+        out["unidades"] = "MMGS"
+    return out
 
 
 def t_sw_open(a):
@@ -495,7 +555,8 @@ def t_sw_execute_script(a):
     app = c.sw_app()
     before = c.doc_state(c.active_doc(required=False))
 
-    ns = {"sw": app, "doc": c.active_doc(required=False), "c": c}
+    from . import asm as am, features as fx, mecanizado as mz
+    ns = {"sw": app, "doc": c.active_doc(required=False), "c": c, "fx": fx, "mz": mz, "am": am}
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
@@ -611,12 +672,41 @@ def t_sw_close(a):
     return {"closed": title}
 
 
+def t_sw_mass_properties(a):
+    c = _core()
+    from . import features
+    doc = c.active_doc()
+    if a.get("material"):
+        return features.set_material(doc, a["material"], a.get("database", "SOLIDWORKS Materials"))
+    return features.mass_props(doc)
+
+
+def t_sw_check_machining(a):
+    c = _core()
+    from . import mecanizado
+    doc = c.active_doc()
+    out = mecanizado.dfm_3ejes(doc)
+    if a.get("export_dir"):
+        out["export"] = mecanizado.export_cam(doc, a["export_dir"])
+    return out
+
+
+def t_sw_interferences(a):
+    c = _core()
+    from . import asm
+    doc = c.active_doc()
+    if c.doc_type(doc) != 2:
+        raise ValueError("El documento activo no es un ensamblaje.")
+    return asm.interferences(doc, coincidencia=bool(a.get("coincidence", False)))
+
+
 HANDLERS = {t.__name__[2:]: t for t in [
     t_sw_connect, t_sw_doc_info, t_sw_new_part, t_sw_open, t_sw_extrude,
     t_sw_list_bodies, t_sw_bbox, t_sw_list_features, t_sw_rebuild,
     t_sw_save_as, t_sw_export_step, t_sw_close,
     t_sw_execute_script, t_sw_api_search, t_sw_api_doc, t_sw_api_enum,
     t_sw_api_members, t_sw_api_example, t_sw_screenshot,
+    t_sw_mass_properties, t_sw_check_machining, t_sw_interferences,
 ]}
 
 

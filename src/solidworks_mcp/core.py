@@ -971,6 +971,11 @@ MUTATING_PREFIXES = (
 )
 _MUTATING_RE = re.compile(r"\.(%s)\w*\s*\(" % "|".join(MUTATING_PREFIXES))
 _ASSIGN_RE = re.compile(r"\.\w+\s*=[^=]")   # asignacion a propiedad: doc.X = ...
+# Empiezan por un verbo "mutante" pero solo leen o crean objetos auxiliares
+# (falsos positivos vistos en uso real, 27-09-2026).
+_READ_ONLY_OK = re.compile(r"(FeatureByName|FeatureByPositionReverse|FeatureById|"
+                           r"CreateMassProperty2?|CreateSelectData|CreatePoint|"
+                           r"CreateTransform|OpenKey|CreateDefinition)\s*\(")
 
 
 def scan_mutating(script):
@@ -978,7 +983,8 @@ def scan_mutating(script):
     solo detecta el patron `.Verbo(` o `.propiedad = `, en texto, sin parsear
     Python de verdad. Una llamada tras una indireccion (getattr, variable con
     el metodo guardado) se le escapa."""
-    hits = set(m.group(0) for m in _MUTATING_RE.finditer(script))
+    hits = set(m.group(0) for m in _MUTATING_RE.finditer(script)
+               if not _READ_ONLY_OK.match(m.group(0)[1:]))
     if _ASSIGN_RE.search(script):
         hits.add("<asignacion a propiedad>")
     return sorted(hits)

@@ -38,7 +38,7 @@ Sin `pip install`, añade `"env": {"PYTHONPATH": "C:\\ruta\\a\\solidworks-mcp-py
 SOLIDWORKS tiene que estar abierto. `stdout` es del protocolo; los logs van a
 `stderr` y a `data/server.log`.
 
-## Herramientas (19)
+## Herramientas (22)
 
 | Grupo | Tools |
 |---|---|
@@ -46,7 +46,8 @@ SOLIDWORKS tiene que estar abierto. `stdout` es del protocolo; los logs van a
 | Modelado (atajos) | `sw_extrude` (croquis + extrusión/corte en un paso, mm) |
 | Inspección | `sw_list_bodies` `sw_bbox` `sw_list_features` `sw_screenshot` |
 | Guardar / exportar | `sw_save_as` `sw_export_step` |
-| Script | `sw_execute_script` — scope: `sw`, `doc`, `c` (`solidworks_mcp.core`); `readOnly` con filtro previo + diff de estado posterior |
+| Ingeniería / fabricación | `sw_mass_properties` (y material), `sw_check_machining` (DFM de fresado 3 ejes, perfil Makera Carvera Air, STEP para el CAM), `sw_interferences` (agrupadas por pareja) |
+| Script | `sw_execute_script` — scope: `sw`, `doc`, `c` (core), `fx` (features), `mz` (mecanizado), `am` (ensamblaje); `readOnly` con filtro previo + diff de estado posterior |
 | **Conocimiento de la API** | `sw_api_doc` `sw_api_enum` `sw_api_members` `sw_api_search` `sw_api_example` |
 
 Los scripts pueden seguir usando los nombres históricos (`import sw_core as c`,
@@ -87,13 +88,19 @@ src/solidworks_mcp/
   server.py      protocolo + definición de tools + handlers
   core.py        COM: conexión, croquis, extrusión, rosca, cuerpos, bbox, captura,
                  aristas/caras por geometría, chaflán/redondeo, guardar, readOnly
-  asm.py         ensamblaje: componentes por posición, caras por geometría, AddMate5
+  features.py    revolución, vaciado, asistente de taladro, matrices, simetría,
+                 ángulo de salida, nervio, plano, recubrimiento, barrido, chapa +
+                 DXF, material, propiedades físicas, ecuaciones, configuraciones
+  mecanizado.py  revisión DFM de fresado 3 ejes (Carvera Air) y STEP para el CAM
+  asm.py         ensamblaje: componentes por posición, caras por geometría,
+                 AddMate5, interferencias
   const.py       constantes swconst (índice + typelib; w.constants está vacío)
   api_doc.py     une typelib + ayuda para las tools sw_api_*
   api_lookup.py  cliente del sqlite (stdlib)
   paths.py       dónde viven los datos locales
 tools/           dump_api.py e index_build/ (crawler -> parser -> sqlite)
-scripts/         selftest, bench*, diag_* contra una sesión real
+scripts/         selftest, probetas.py (23 pasos, cada operación comprobada por
+                 VOLUMEN contra su valor teórico), bench*, diag_*
 docs/            notas de otros servidores MCP de SOLIDWORKS y de la documentación de 3DS
 ```
 
@@ -115,6 +122,26 @@ docs/            notas de otros servidores MCP de SOLIDWORKS y de la documentaci
 - **Caras para relaciones**: las de `Component2.GetBodies2` dan su geometría en coordenadas de la PIEZA y se pueden seleccionar (`Select4`, marca 1) para `AddMate5`. No recorras todas las caras de una pieza compleja (930 caras × 30 ms): `comp.FeatureByName("Op3").GetFaces` da solo las de esa operación. `asm.py` lo encapsula y cachea.
 - **Trabajos largos** (38 relaciones, ~106 s) no caben en el límite de 60 s de una llamada: lánzalos como subproceso que escribe un log y consulta el log. Nunca dos procesos COM contra la misma sesión a la vez.
 - **Planos**: la plantilla `Dibujo.drwdot` viene en metros (fija MMGS con `SetUserPreferenceInteger`); la primera vista reajusta la escala de la hoja (fija `ISheet.SetScale` después); el croquis de una vista usa unidades de modelo con el origen en el centro de la caja del modelo; en una vista de sección `Position` no es el centro de su contorno, y las vistas alineadas se alinean por `Position` (proyecta sin alinear y centra por contorno). Para acotar, `SelectByID2("", "EDGE", x, y)` en coordenadas de hoja calculadas con `IView.ModelToViewTransform` (hoja = T + s·(p·R)) funciona; el valor de la cota confirma que se eligió la arista buena.
+
+### Operaciones de pieza (probadas el 27-09-2026, `scripts/probetas.py`)
+
+- **La plantilla de pieza de fábrica está en METROS**: un DXF de chapa sale 1000 veces
+  pequeño. `sw_new_part` fija ya MMGS; en piezas existentes, `fx.units_mm(doc)`. Fijar
+  además `swUnitsLinear` deja el sistema en "Personalizado".
+- **Asistente de taladro**: `HoleWizard5` devolvió None en todas las combinaciones. Funciona
+  `CreateDefinition(swFmHoleWzd)` + `InitializeHole` + `SelectByRay` sobre la cara (el
+  punto del rayo es la posición) + `CreateFeature`.
+- **Simetría**: operaciones (marca 1) ANTES que el plano (marca 2). Un nervio no se deja
+  simetrizar como operación: simetría de cuerpo (marca 256).
+- **Croquis en Planta**: x = X, y = −Z. `fx.sketch_point()` convierte con
+  `ModelToSketchTransform`; `IMathUtility.CreatePoint` necesita `VARIANT(VT_ARRAY|VT_R8)`.
+- **Ecuaciones**: la variable global `"Espesor"` se rechaza (−1); `"EspesorPlaca"` va bien.
+- **Normales**: `ISurface.EvaluateAtPoint` da la normal en [0:3] y
+  `IFace2.FaceInSurfaceSense = True` significa normales OPUESTAS.
+- **Brida de arista de chapa**: pendiente (con solo `Edge`, `BendAngle`, `OffsetDistance`
+  devuelve None; pide perfil con `InsertSketchForEdgeFlange`).
+- **Interferencias**: una entrada por trocito (201 en un reductor de correas, todas
+  dientes correa/polea de < 0,01 mm³): `am.interferences` las agrupa por pareja.
 
 ### Rendimiento: lo único que importa es el número de llamadas COM
 

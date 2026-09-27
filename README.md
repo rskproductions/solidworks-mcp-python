@@ -17,7 +17,7 @@ writing it instead of guessing 20 positional parameters.
 > SOLIDWORKS 2026 (3DEXPERIENCE R2026x, Spanish UI) and Python 3.14 only.
 > Reports from other versions and languages are welcome (open an issue).
 
-## Tools (19)
+## Tools (22)
 
 | Group | Tools |
 |---|---|
@@ -25,7 +25,8 @@ writing it instead of guessing 20 positional parameters.
 | Modelling shortcut | `sw_extrude` (sketch + boss/cut in one step, mm) |
 | Inspection | `sw_list_bodies` `sw_bbox` `sw_list_features` `sw_screenshot` |
 | Save / export | `sw_save_as` `sw_export_step` |
-| Script | `sw_execute_script` — scope: `sw`, `doc`, `c` (`solidworks_mcp.core`); `readOnly` guard |
+| Engineering / manufacturing | `sw_mass_properties` (optionally sets the material), `sw_check_machining` (3-axis DFM, default profile Makera Carvera Air, STEP for the CAM), `sw_interferences` (grouped by component pair) |
+| Script | `sw_execute_script` — scope: `sw`, `doc`, `c` (core), `fx` (features), `mz` (machining), `am` (assembly); `readOnly` guard |
 | **API knowledge** | `sw_api_doc` `sw_api_enum` `sw_api_members` `sw_api_search` `sw_api_example` |
 
 ## Install
@@ -83,13 +84,19 @@ src/solidworks_mcp/
   server.py      MCP protocol (stdio JSON-RPC), tool definitions and handlers
   core.py        COM helpers: connection, sketch, extrude, thread, bodies, bbox,
                  edges/faces by geometry, chamfer/fillet, screenshot, save
-  asm.py         assemblies: components by position, faces by geometry, AddMate5
+  features.py    revolve, shell, Hole Wizard, circular/linear pattern, mirror,
+                 draft, rib, reference plane, loft, sweep, sheet metal + flat DXF,
+                 material, mass properties, equations, configurations
+  mecanizado.py  3-axis DFM check (Carvera Air profile) and STEP export for the CAM
+  asm.py         assemblies: components by position, faces by geometry, AddMate5,
+                 interference detection
   const.py       swconst values from the help index + type library
   api_doc.py     merges type library + help for the sw_api_* tools
   api_lookup.py  sqlite client (stdlib)
   paths.py       where local data lives
 tools/           dump_api.py and index_build/ (crawler -> parser -> sqlite)
-scripts/         selftest, benchmarks and diagnostics against a live session
+scripts/         selftest, probetas.py (23-step regression: every feature checked
+                 by VOLUME against its theoretical value), benchmarks, diagnostics
 docs/            notes on other SOLIDWORKS MCP servers and APIs
 ```
 
@@ -111,6 +118,14 @@ nor the help mention. The short version (details in [README.es.md](README.es.md)
 - Every COM round trip costs ~30 ms: performance is the number of calls.
   Scope face/edge searches to one feature (`comp.FeatureByName(...).GetFaces`).
 - `win32com.client.constants` is empty without makepy: use `const("swFmFillet")`.
+- The default part template is in **metres**: flat-pattern DXFs come out 1000x too
+  small. `sw_new_part` now sets MMGS; `fx.units_mm(doc)` for existing parts.
+- `ISurface.EvaluateAtPoint` returns the normal at [0:3], and
+  `IFace2.FaceInSurfaceSense == True` means face and surface normals are *opposite*.
+- Hole Wizard: `HoleWizard5` returned None in every combination tried;
+  `CreateDefinition(swFmHoleWzd)` + `InitializeHole` + `SelectByRay` + `CreateFeature` works.
+- Mirror features: select the features (mark 1) *before* the plane (mark 2). Ribs
+  can't be mirrored as features: mirror the body (mark 256).
 - A tool call has a 60 s budget in Claude Desktop: run long jobs as a
   subprocess that writes a log. Never two COM clients on the same session at once.
 
