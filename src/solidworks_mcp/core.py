@@ -465,9 +465,12 @@ def thread_cut(doc, cx, cy, r_mayor, z_inicio, altura, pitch_mm, tipo="Inch Die"
     return {"feature": (name or feat.Name)}
 
 
+# GetBodies2(swSolidBody, VisibleOnly=False) en todo el paquete: con True, un
+# cuerpo OCULTO desaparece y la caja/caras/aristas salen vacias sin error
+# (visto 27-09-2026: pieza guardada con el cuerpo oculto -> sw_bbox = None).
 def bodies_info(doc):
     out = []
-    bodies = doc.GetBodies2(0, True)
+    bodies = doc.GetBodies2(0, False)
     if not bodies:
         return out
     for b in bodies:
@@ -485,7 +488,7 @@ def bodies_info(doc):
 def face_count(doc):
     """Numero total de caras. Testigo de que un corte ha quitado material:
     la caja envolvente no cambia con un agujero, el recuento de caras si."""
-    bodies = doc.GetBodies2(0, True)
+    bodies = doc.GetBodies2(0, False)
     if not bodies:
         return 0
     n = 0
@@ -508,7 +511,7 @@ def overall_bbox(doc):
         hi = [v * MM for v in box[3:6]]
         aprox = True
     else:
-        bodies = doc.GetBodies2(0, True)
+        bodies = doc.GetBodies2(0, False)
         if not bodies:
             return None
         lo = [1e18, 1e18, 1e18]
@@ -740,7 +743,7 @@ def straight_edges(doc, face=None):
     if face is not None:
         fuentes = [soft(face, "GetEdges") or []]
     else:
-        fuentes = [soft(b, "GetEdges") or [] for b in (doc.GetBodies2(0, True) or [])]
+        fuentes = [soft(b, "GetEdges") or [] for b in (doc.GetBodies2(0, False) or [])]
     for aristas in fuentes:
         for e in aristas:
             g = edge_geom(e)
@@ -762,7 +765,7 @@ def planar_faces(doc, z_mm=None, tol=1e-3):
     3 llamadas por cara: 1.084 ms frente a los ~350 de ahora.
     """
     out = []
-    for body in (doc.GetBodies2(0, True) or []):
+    for body in (doc.GetBodies2(0, False) or []):
         for f in (soft(body, "GetFaces") or []):
             if z_mm is not None:
                 caja = soft(f, "GetBox")    # [x1,y1,z1,x2,y2,z2] en metros
@@ -995,7 +998,7 @@ def doc_state(doc):
     if doc is None:
         return {"doc": None}
     try:
-        nbodies = len(doc.GetBodies2(0, True) or [])
+        nbodies = len(doc.GetBodies2(0, False) or [])
     except Exception:
         nbodies = None
     try:

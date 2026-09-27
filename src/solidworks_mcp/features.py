@@ -244,7 +244,7 @@ def mirror_features(doc, feats, plano):
 def mirror_body(doc, plano, cuerpo=None, merge=True):
     """Simetria del cuerpo entero (marca 256). Sirve cuando una operacion
     (p.ej. un nervio) no se deja simetrizar."""
-    cuerpo = cuerpo or doc.GetBodies2(0, True)[0]
+    cuerpo = cuerpo or doc.GetBodies2(0, False)[0]
     doc.ClearSelection2(True)
     sd = doc.SelectionManager.CreateSelectData
     sd.Mark = 256

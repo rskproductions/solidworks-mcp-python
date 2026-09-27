@@ -445,7 +445,7 @@ def t_sw_doc_info(a):
     tipo = c.doc_type(doc)
     out = {"title": doc.GetTitle, "path": doc.GetPathName, "type": tipo}
     if tipo == 1:
-        out["bodies"] = len(doc.GetBodies2(0, True) or [])
+        out["bodies"] = len(doc.GetBodies2(0, False) or [])
     elif tipo == 2:
         out["components"] = len(doc.GetComponents(False) or [])   # todos los niveles
     return out

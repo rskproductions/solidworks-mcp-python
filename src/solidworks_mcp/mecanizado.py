@@ -78,7 +78,7 @@ def dfm_3ejes(doc, maquina=CARVERA_AIR, eje_herramienta=(0.0, 0.0, 1.0)):
     tz = eje_herramienta
     zmin = bb["min"][2]
     cilindros, abajo = [], []
-    for body in doc.GetBodies2(0, True) or []:
+    for body in doc.GetBodies2(0, False) or []:
         for f in c.soft(body, "GetFaces") or []:
             s = c.soft(f, "GetSurface")
             if c.soft(s, "IsCylinder"):
