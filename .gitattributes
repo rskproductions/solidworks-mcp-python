@@ -1,0 +1,14 @@
+# Normaliza finales de linea: el repo guarda LF, Windows trabaja con CRLF.
+# Sin esto, un checkout en otra maquina genera diffs de 100% del fichero.
+* text=auto eol=lf
+*.py   text eol=lf
+*.md   text eol=lf
+*.js   text eol=lf
+*.json text eol=lf
+*.ps1  text eol=crlf
+
+# Binarios y volcados grandes: sin diff ni normalizacion
+*.sqlite binary
+*.png    binary
+*.zip    binary
+api_index.txt -text -diff

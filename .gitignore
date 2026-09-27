@@ -1,0 +1,34 @@
+# Datos generados en local (indice de la ayuda con copyright de Dassault,
+# volcado de la typelib, constantes, capturas, log): NUNCA se versionan.
+data/
+*.sqlite
+api_index.txt
+swconst*.json
+server.log
+out/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.env
+
+# Editores / SO
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+
+# SOLIDWORKS
+*.sldbak
+~$*
+*.SLDPRT
+*.SLDASM
+*.SLDDRW
+*.sldprt
+*.sldasm
+*.slddrw

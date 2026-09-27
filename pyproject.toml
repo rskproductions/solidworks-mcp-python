@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "solidworks-mcp-python"
+version = "0.1.0"
+description = "MCP server that drives SOLIDWORKS through its COM API (pywin32), with a local semantic index of the API help."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = ["pywin32>=306; sys_platform == 'win32'"]
+keywords = ["mcp", "solidworks", "cad", "com", "pywin32", "claude"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: Microsoft :: Windows",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Computer Aided Design (CAD)",
+]
+
+[project.scripts]
+solidworks-mcp = "solidworks_mcp.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
